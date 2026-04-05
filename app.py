@@ -28,10 +28,20 @@ if uploaded_file is not None:
         st.write("📄 Bản xem trước dữ liệu gốc:")
         st.dataframe(df.head())
 
-        # Dịch sang tiếng Việt
-        df["vi"] = df["jp"].apply(
-            lambda x: GoogleTranslator(source="ja", target="vi").translate(x) if pd.notnull(x) else x
-        )
+        # Lấy danh sách cần dịch (bỏ qua giá trị rỗng)
+        texts = df["jp"].dropna().astype(str).tolist()
+
+        # Dịch theo batch
+        translator = GoogleTranslator(source="ja", target="vi")
+        translated = translator.translate_batch(texts)
+
+        # Tạo cột 'vi' rỗng trước
+        df["vi"] = None
+
+        # Gán kết quả dịch vào đúng vị trí, giữ nguyên dòng trống
+        df.loc[df["jp"].notna(), "vi"] = translated
+
+        # Xóa cột jp
         df = df.drop(columns=["jp"])
 
         st.write("✅ Bản xem trước dữ liệu đã dịch:")
