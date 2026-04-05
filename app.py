@@ -4,12 +4,13 @@ import requests
 
 st.title("Dịch CSV/Excel từ tiếng Nhật sang tiếng Việt")
 
-# Thay bằng key và endpoint của bạn (lấy từ Azure Portal)
+# ⚠️ Điền thông tin thật từ Azure Portal
 AZURE_KEY = "YOUR_AZURE_TRANSLATOR_KEY"
 AZURE_ENDPOINT = "https://api.cognitive.microsofttranslator.com"
 AZURE_REGION = "YOUR_REGION"  # ví dụ: "eastasia"
 
 def translate_texts(texts, from_lang="ja", to_lang="vi"):
+    """Dịch danh sách văn bản từ ngôn ngữ nguồn sang ngôn ngữ đích bằng Microsoft Translator API"""
     path = '/translate?api-version=3.0'
     params = f"&from={from_lang}&to={to_lang}"
     constructed_url = AZURE_ENDPOINT + path + params
@@ -50,14 +51,15 @@ if uploaded_file is not None:
         # Lấy danh sách cần dịch
         texts = df["jp"].dropna().astype(str).tolist()
 
-        # Dịch sang tiếng Việt
-        translated = translate_texts(texts)
+        if texts:
+            # Dịch sang tiếng Việt
+            translated = translate_texts(texts)
 
-        # Gán kết quả dịch vào cột jp
-        df.loc[df["jp"].notna(), "jp"] = translated
+            # Gán kết quả dịch vào cột jp
+            df.loc[df["jp"].notna(), "jp"] = translated
 
-        # Đổi tên cột jp thành vi
-        df = df.rename(columns={"jp": "vi"})
+            # Đổi tên cột jp thành vi
+            df = df.rename(columns={"jp": "vi"})
 
         st.write("✅ Bản xem trước dữ liệu đã dịch:")
         st.dataframe(df.head())
