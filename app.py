@@ -4,13 +4,18 @@ import streamlit as st
 
 st.title("Dịch CSV từ tiếng Nhật sang tiếng Việt")
 
-uploaded_file = st.file_uploader("Tải lên file CSV", type="csv")
+uploaded_file = st.file_uploader("Tải lên file CSV hoặc Excel", type=["csv", "xlsx"])
 
 if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
+    try:
+        # Thử đọc như CSV
+        df = pd.read_csv(uploaded_file)
+    except Exception:
+        # Nếu lỗi, đọc như Excel
+        df = pd.read_excel(uploaded_file)
 
     if "ja" not in df.columns:
-        st.error("File CSV không có cột 'ja'.")
+        st.error("File không có cột 'ja'.")
     else:
         st.write("📄 Bản xem trước dữ liệu gốc:")
         st.dataframe(df.head())
@@ -30,3 +35,4 @@ if uploaded_file is not None:
             file_name="UI_translated.csv",
             mime="text/csv",
         )
+
