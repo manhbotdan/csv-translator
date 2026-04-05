@@ -4,7 +4,7 @@ import requests
 
 st.title("Dịch CSV/Excel từ tiếng Nhật sang tiếng Việt")
 
-# Thay bằng key và endpoint của bạn (nếu dùng Microsoft Translator API)
+# Thay bằng key và endpoint của bạn (lấy từ Azure Portal)
 AZURE_KEY = "YOUR_AZURE_TRANSLATOR_KEY"
 AZURE_ENDPOINT = "https://api.cognitive.microsofttranslator.com"
 AZURE_REGION = "YOUR_REGION"  # ví dụ: "eastasia"
@@ -23,7 +23,13 @@ def translate_texts(texts, from_lang="ja", to_lang="vi"):
     body = [{"text": t} for t in texts]
     request = requests.post(constructed_url, headers=headers, json=body)
     response = request.json()
-    return [item['translations'][0]['text'] for item in response]
+
+    # Kiểm tra response có hợp lệ không
+    if isinstance(response, list) and "translations" in response[0]:
+        return [item['translations'][0]['text'] for item in response]
+    else:
+        st.error(f"Lỗi dịch: {response}")
+        return texts  # nếu lỗi thì giữ nguyên text
 
 uploaded_file = st.file_uploader("Tải lên file CSV hoặc Excel", type=["csv", "xlsx"])
 
