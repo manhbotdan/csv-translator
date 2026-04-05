@@ -35,14 +35,11 @@ if uploaded_file is not None:
         translator = GoogleTranslator(source="ja", target="vi")
         translated = translator.translate_batch(texts)
 
-        # Tạo cột 'vi' rỗng trước
-        df["vi"] = None
+        # Gán kết quả dịch vào cột jp (thay thế trực tiếp)
+        df.loc[df["jp"].notna(), "jp"] = translated
 
-        # Gán kết quả dịch vào đúng vị trí, giữ nguyên dòng trống
-        df.loc[df["jp"].notna(), "vi"] = translated
-
-        # Xóa cột jp
-        df = df.drop(columns=["jp"])
+        # Đổi tên cột jp thành vi
+        df = df.rename(columns={"jp": "vi"})
 
         st.write("✅ Bản xem trước dữ liệu đã dịch:")
         st.dataframe(df.head())
