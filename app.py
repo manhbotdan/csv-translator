@@ -22,20 +22,22 @@ if uploaded_file is not None:
             st.error("❌ Không thể đọc file. Vui lòng kiểm tra lại định dạng (CSV chuẩn hoặc Excel .xlsx).")
             st.stop()
 
-    if "ja" not in df.columns:
-        st.error("File không có cột 'ja'.")
+    if "jp" not in df.columns:
+        st.error("File không có cột 'jp'.")
     else:
         st.write("📄 Bản xem trước dữ liệu gốc:")
         st.dataframe(df.head())
 
-        df["vi"] = df["ja"].apply(
+        # Dịch sang tiếng Việt
+        df["vi"] = df["jp"].apply(
             lambda x: GoogleTranslator(source="ja", target="vi").translate(x) if pd.notnull(x) else x
         )
-        df = df.drop(columns=["ja"])
+        df = df.drop(columns=["jp"])
 
         st.write("✅ Bản xem trước dữ liệu đã dịch:")
         st.dataframe(df.head())
 
+        # Xuất file CSV mới
         csv = df.to_csv(index=False, encoding="utf-8-sig")
         st.download_button(
             label="⬇️ Tải xuống file CSV đã dịch",
