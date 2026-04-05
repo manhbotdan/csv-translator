@@ -1,54 +1,21 @@
-import pandas as pd
-from deep_translator import GoogleTranslator
-import streamlit as st
+import time
 
-st.title("Dịch CSV/Excel từ tiếng Nhật sang tiếng Việt")
+texts = df["jp"].dropna().astype(str).tolist()
+translator = GoogleTranslator(source="ja", target="vi")
 
-uploaded_file = st.file_uploader("Tải lên file CSV hoặc Excel", type=["csv", "xlsx"])
+translated = []
+batch_size = 50  # số dòng mỗi batch
 
-if uploaded_file is not None:
-    df = None
-    # Thử đọc như CSV
+for i in range(0, len(texts), batch_size):
+    batch = texts[i:i+batch_size]
     try:
-        df = pd.read_csv(uploaded_file, encoding="utf-8", sep=None, engine="python")
-    except Exception:
-        pass
+        result = translator.translate_batch(batch)
+        translated.extend(result)
+    except Exception as e:
+        st.warning(f"Lỗi khi dịch batch {i//batch_size+1}: {e}")
+        translated.extend([""] * len(batch))
+    time.sleep(2)  # nghỉ 2 giây giữa các batch
 
-    # Nếu chưa đọc được, thử đọc như Excel
-    if df is None:
-        try:
-            df = pd.read_excel(uploaded_file, engine="openpyxl")
-        except Exception:
-            st.error("❌ Không thể đọc file. Vui lòng kiểm tra lại định dạng (CSV chuẩn hoặc Excel .xlsx).")
-            st.stop()
-
-    if "jp" not in df.columns:
-        st.error("File không có cột 'jp'.")
-    else:
-        st.write("📄 Bản xem trước dữ liệu gốc:")
-        st.dataframe(df.head())
-
-        # Lấy danh sách cần dịch (bỏ qua giá trị rỗng)
-        texts = df["jp"].dropna().astype(str).tolist()
-
-        # Dịch theo batch
-        translator = GoogleTranslator(source="ja", target="vi")
-        translated = translator.translate_batch(texts)
-
-        # Gán kết quả dịch vào cột jp (thay thế trực tiếp)
-        df.loc[df["jp"].notna(), "jp"] = translated
-
-        # Đổi tên cột jp thành vi
-        df = df.rename(columns={"jp": "vi"})
-
-        st.write("✅ Bản xem trước dữ liệu đã dịch:")
-        st.dataframe(df.head())
-
-        # Xuất file CSV mới
-        csv = df.to_csv(index=False, encoding="utf-8-sig")
-        st.download_button(
-            label="⬇️ Tải xuống file CSV đã dịch",
-            data=csv,
-            file_name="UI_translated.csv",
-            mime="text/csv",
-        )
+# Gán kết quả vào đúng vị trí
+df.loc[df["jp"].notna(), "jp"] = translated
+df = df.rename(columns={"jp": "vi"})
