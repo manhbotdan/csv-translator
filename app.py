@@ -1,74 +1,60 @@
-import pandas as pd
-import streamlit as st
-import requests
+from flask import Flask, request, render_template_string, send_file
+import json
+from googletrans import Translator
+import io
 
-st.title("Dịch CSV/Excel từ tiếng Nhật sang tiếng Việt")
+app = Flask(__name__)
+translator = Translator()
 
-# ⚠️ Điền thông tin thật từ Azure Portal
-AZURE_KEY = "YOUR_AZURE_TRANSLATOR_KEY"
-AZURE_ENDPOINT = "https://api.cognitive.microsofttranslator.com"
-AZURE_REGION = "YOUR_REGION"  # ví dụ: "eastasia"
+HTML = """
+<!doctype html>
+<title>Dịch file JSON</title>
+<h1>Upload file JSON để dịch</h1>
+<form method=post enctype=multipart/form-data>
+  <input type=file name=file>
+  <input type=text name=lang placeholder="Ngôn ngữ đích (vd: en, vi)">
+  <input type=submit value=Dịch>
+</form>
+{% if translated %}
+<h2>Kết quả dịch:</h2>
+<pre>{{ translated }}</pre>
+<a href="/download">Tải file JSON đã dịch</a>
+{% endif %}
+"""
 
-def translate_texts(texts, from_lang="ja", to_lang="vi"):
-    """Dịch danh sách văn bản từ ngôn ngữ nguồn sang ngôn ngữ đích bằng Microsoft Translator API"""
-    path = '/translate?api-version=3.0'
-    params = f"&from={from_lang}&to={to_lang}"
-    constructed_url = AZURE_ENDPOINT + path + params
+translated_data = None
 
-    headers = {
-        'Ocp-Apim-Subscription-Key': AZURE_KEY,
-        'Ocp-Apim-Subscription-Region': AZURE_REGION,
-        'Content-type': 'application/json'
-    }
+@app.route("/", methods=["GET", "POST"])
+def upload_file():
+    global translated_data
+    translated = None
+    if request.method == "POST":
+        file = request.files["file"]
+        lang = request.form.get("lang", "en")
+        if file:
+            data = json.load(file)
+            def translate_json(obj):
+                if isinstance(obj, dict):
+                    return {k: translate_json(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [translate_json(i) for i in obj]
+                elif isinstance(obj, str):
+                    return translator.translate(obj, dest=lang).text
+                else:
+                    return obj
+            translated_data = translate_json(data)
+            translated = json.dumps(translated_data, ensure_ascii=False, indent=2)
+    return render_template_string(HTML, translated=translated)
 
-    body = [{"text": t} for t in texts]
-    request = requests.post(constructed_url, headers=headers, json=body)
-    response = request.json()
+@app.route("/download")
+def download_file():
+    global translated_data
+    if translated_data:
+        output = io.BytesIO()
+        output.write(json.dumps(translated_data, ensure_ascii=False, indent=2).encode("utf-8"))
+        output.seek(0)
+        return send_file(output, as_attachment=True, download_name="translated.json", mimetype="application/json")
+    return "Chưa có dữ liệu dịch"
 
-    # Kiểm tra response có hợp lệ không
-    if isinstance(response, list) and "translations" in response[0]:
-        return [item['translations'][0]['text'] for item in response]
-    else:
-        st.error(f"Lỗi dịch: {response}")
-        return texts  # nếu lỗi thì giữ nguyên text
-
-uploaded_file = st.file_uploader("Tải lên file CSV hoặc Excel", type=["csv", "xlsx"])
-
-if uploaded_file is not None:
-    # Đọc file
-    try:
-        df = pd.read_csv(uploaded_file, encoding="utf-8", sep=None, engine="python")
-    except Exception:
-        df = pd.read_excel(uploaded_file, engine="openpyxl")
-
-    # Kiểm tra cột jp
-    if "jp" not in df.columns:
-        st.error("File không có cột 'jp'.")
-    else:
-        st.write("📄 Bản xem trước dữ liệu gốc:")
-        st.dataframe(df.head())
-
-        # Lấy danh sách cần dịch
-        texts = df["jp"].dropna().astype(str).tolist()
-
-        if texts:
-            # Dịch sang tiếng Việt
-            translated = translate_texts(texts)
-
-            # Gán kết quả dịch vào cột jp
-            df.loc[df["jp"].notna(), "jp"] = translated
-
-            # Đổi tên cột jp thành vi
-            df = df.rename(columns={"jp": "vi"})
-
-        st.write("✅ Bản xem trước dữ liệu đã dịch:")
-        st.dataframe(df.head())
-
-        # Xuất file CSV mới
-        csv = df.to_csv(index=False, encoding="utf-8-sig")
-        st.download_button(
-            label="⬇️ Tải xuống file CSV đã dịch",
-            data=csv,
-            file_name="UI_translated.csv",
-            mime="text/csv",
-        )
+if __name__ == "__main__":
+    app.run(debug=True)
